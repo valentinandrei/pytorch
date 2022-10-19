@@ -148,12 +148,12 @@ class TestTransformers(NNTestCase):
     @parametrize("use_torchscript", [False])
     @parametrize("enable_nested_tensor", [True, False])
     @parametrize("use_autocast", [True, False])
-    def test_transformerencoder_fastpath(self, device, use_torchscript, enable_nested_tensor, use_autocast):
+    @parametrize("d_model", [12, 256])
+    def test_transformerencoder_fastpath(self, device, use_torchscript, enable_nested_tensor, use_autocast, d_model):
         """
         Test TransformerEncoder fastpath output matches slowpath output
         """
         torch.manual_seed(1234)
-        d_model = 12
         nhead = 4
         dim_feedforward = 12
         batch_first = True

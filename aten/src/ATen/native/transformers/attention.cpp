@@ -7,6 +7,10 @@
 #include <ATen/TensorIndexing.h>
 #include <ATen/cpu/vec/vec256/vec256.h>
 
+#ifdef USE_CUDA
+#include <ATen/native/transformers/cuda/sdp_utils.h>
+#endif
+
 #ifndef AT_PER_OPERATOR_HEADERS
 #include <ATen/NativeFunctions.h>
 #else
@@ -385,27 +389,33 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
       : query.sizes()[0];
   auto T = query.is_nested() ? 0 : query.sizes()[1];
 #endif
-
+#ifdef USE_CUDA
   const auto dim_per_head = D / num_head;
-
-  if (query.is_same(key) && key.is_same(value) && !need_weights && !mask.has_value()) {
-    auto x = at::linear(query, qkv_weight, qkv_bias);
-    auto chunks = x.chunk(3, -1);
-    auto x_size_0 = x.size(0);
-    chunks[0] = chunks[0].view({x_size_0, -1, num_head, dim_per_head});
-    chunks[1] = chunks[1].view({x_size_0, -1, num_head, dim_per_head});
-    chunks[2] = chunks[2].view({x_size_0, -1, num_head, dim_per_head});
-    chunks[0] = chunks[0].transpose(1, 2);
-    chunks[1] = chunks[1].transpose(1, 2);
-    chunks[2] = chunks[2].transpose(1, 2);
-    auto y = at::_scaled_dot_product_attention(
-        chunks[0], chunks[1], chunks[2], c10::nullopt, 0.0, false, false);
-    auto past_sdp =
-        std::get<0>(y).transpose(1, 2).reshape({x_size_0, -1, embed_dim});
-    return std::make_tuple(
-        at::linear(past_sdp, proj_weight, proj_bias), Tensor());
+  if (dim_per_head % 8 == 0 && query.is_cuda()) {
+    sdp::sdp_params kernel_params{
+        query, key, value, mask.has_value(), 0.0, need_weights, false};
+    auto backend = select_sdp_backend(kernel_params);
+    if (backend == sdp::SDPBackend::math) {
+      break;
+    } else {
+      auto x = at::linear(query, qkv_weight, qkv_bias);
+      auto chunks = x.chunk(3, -1);
+      auto x_size_0 = x.size(0);
+      chunks[0] = chunks[0].view({x_size_0, -1, num_head, dim_per_head});
+      chunks[1] = chunks[1].view({x_size_0, -1, num_head, dim_per_head});
+      chunks[2] = chunks[2].view({x_size_0, -1, num_head, dim_per_head});
+      chunks[0] = chunks[0].transpose(1, 2);
+      chunks[1] = chunks[1].transpose(1, 2);
+      chunks[2] = chunks[2].transpose(1, 2);
+      auto y = at::_scaled_dot_product_attention(
+          chunks[0], chunks[1], chunks[2], mask, 0.0, need_weights, false);
+      auto past_sdp =
+          std::get<0>(y).transpose(1, 2).reshape({x_size_0, -1, embed_dim});
+      return std::make_tuple(
+          at::linear(past_sdp, proj_weight, proj_bias), Tensor());
+    }
   }
-
+#endif // USE_CUDA
   // shape: [B, T, 3 x D]
   auto qkv = qkv_projection(query, key, value, embed_dim, qkv_weight);
 
