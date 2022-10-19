@@ -384,8 +384,27 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
       ? get_nested_tensor_impl(query)->get_nested_size_tensor().size(0)
       : query.sizes()[0];
   auto T = query.is_nested() ? 0 : query.sizes()[1];
-  const auto dim_per_head = D / num_head;
 #endif
+
+  const auto dim_per_head = D / num_head;
+
+  if (query.is_same(key) && key.is_same(value) && !need_weights) {
+    auto x = at::linear(query, qkv_weight, qkv_bias);
+    auto chunks = x.chunk(3, -1);
+    auto x_size_0 = x.size(0);
+    chunks[0] = chunks[0].view({x_size_0, -1, num_head, dim_per_head});
+    chunks[1] = chunks[1].view({x_size_0, -1, num_head, dim_per_head});
+    chunks[2] = chunks[2].view({x_size_0, -1, num_head, dim_per_head});
+    chunks[0] = chunks[0].transpose(1, 2);
+    chunks[1] = chunks[1].transpose(1, 2);
+    chunks[2] = chunks[2].transpose(1, 2);
+    auto y = at::_scaled_dot_product_attention(
+        chunks[0], chunks[1], chunks[2], mask, 0.0, false, false);
+    auto past_sdp =
+        std::get<0>(y).transpose(1, 2).reshape({x_size_0, -1, embed_dim});
+    return std::make_tuple(
+        at::linear(past_sdp, proj_weight, proj_bias), Tensor());
+  }
 
   // shape: [B, T, 3 x D]
   auto qkv = qkv_projection(query, key, value, embed_dim, qkv_weight);
@@ -692,10 +711,36 @@ std::tuple<Tensor, Tensor> _scaled_dot_product_attention(
 }
 
 std::tuple<Tensor, Tensor> _scaled_dot_product_attention_forward_math(
-        const Tensor& query_, const Tensor& key, const Tensor& value,
-        const c10::optional<Tensor>& attn_mask_, double dropout_p, bool need_attn_weights, bool is_causal){
-        return at::_scaled_dot_product_attention_math(query_, key, value, attn_mask_, dropout_p, need_attn_weights, is_causal);
-        }
+    const Tensor& query_,
+    const Tensor& key,
+    const Tensor& value,
+    const c10::optional<Tensor>& attn_mask_,
+    double dropout_p,
+    bool need_attn_weights,
+    bool is_causal) {
+  // We are not training and we are falling back to math case.
+  // Inputs are required to be contiguous if nested
+  Tensor query_contiguous = query_;
+  Tensor key_contiguous = key;
+  Tensor value_contiguous = value;
+  if (query_.is_nested()) {
+    query_contiguous = query_.contiguous();
+  }
+  if (key.is_nested()) {
+    key_contiguous = key.contiguous();
+  }
+  if (value.is_nested()) {
+    value_contiguous = value.contiguous();
+  }
+  return at::_scaled_dot_product_attention_math(
+      query_contiguous,
+      key_contiguous,
+      value_contiguous,
+      attn_mask_,
+      dropout_p,
+      need_attn_weights,
+      is_causal);
+}
 
 std::tuple<Tensor, Tensor> _scaled_dot_product_attention_math(
         const Tensor& query_, const Tensor& key, const Tensor& value,
