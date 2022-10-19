@@ -388,7 +388,7 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
 
   const auto dim_per_head = D / num_head;
 
-  if (query.is_same(key) && key.is_same(value) && !need_weights) {
+  if (query.is_same(key) && key.is_same(value) && !need_weights && !mask.has_value()) {
     auto x = at::linear(query, qkv_weight, qkv_bias);
     auto chunks = x.chunk(3, -1);
     auto x_size_0 = x.size(0);
@@ -399,7 +399,7 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
     chunks[1] = chunks[1].transpose(1, 2);
     chunks[2] = chunks[2].transpose(1, 2);
     auto y = at::_scaled_dot_product_attention(
-        chunks[0], chunks[1], chunks[2], mask, 0.0, false, false);
+        chunks[0], chunks[1], chunks[2], c10::nullopt, 0.0, false, false);
     auto past_sdp =
         std::get<0>(y).transpose(1, 2).reshape({x_size_0, -1, embed_dim});
     return std::make_tuple(
@@ -718,24 +718,10 @@ std::tuple<Tensor, Tensor> _scaled_dot_product_attention_forward_math(
     double dropout_p,
     bool need_attn_weights,
     bool is_causal) {
-  // We are not training and we are falling back to math case.
-  // Inputs are required to be contiguous if nested
-  Tensor query_contiguous = query_;
-  Tensor key_contiguous = key;
-  Tensor value_contiguous = value;
-  if (query_.is_nested()) {
-    query_contiguous = query_.contiguous();
-  }
-  if (key.is_nested()) {
-    key_contiguous = key.contiguous();
-  }
-  if (value.is_nested()) {
-    value_contiguous = value.contiguous();
-  }
   return at::_scaled_dot_product_attention_math(
-      query_contiguous,
-      key_contiguous,
-      value_contiguous,
+      query_,
+      key,
+      value,
       attn_mask_,
       dropout_p,
       need_attn_weights,
@@ -745,22 +731,37 @@ std::tuple<Tensor, Tensor> _scaled_dot_product_attention_forward_math(
 std::tuple<Tensor, Tensor> _scaled_dot_product_attention_math(
         const Tensor& query_, const Tensor& key, const Tensor& value,
         const c10::optional<Tensor>& attn_mask_, double dropout_p, bool need_attn_weights, bool is_causal) {
+     // We are not training and we are falling back to math case.
+  // Inputs are required to be contiguous if nested
+    Tensor query_contiguous = query_;
+    Tensor key_contiguous = key;
+    Tensor value_contiguous = value;
+    if (query_.is_nested()) {
+      query_contiguous = query_.contiguous();
+    }
+    if (key.is_nested()) {
+      key_contiguous = key.contiguous();
+    }
+    if (value.is_nested()) {
+      value_contiguous = value.contiguous();
+    }
+
     auto attn_mask = attn_mask_;
     // Naive, composite implementation defined here.
     const auto embed_size = query_.size(-1);
-    const auto query = query_ * (1. / ::sqrt(static_cast<double>(embed_size)));
+    const auto query = query_contiguous * (1. / ::sqrt(static_cast<double>(embed_size)));
     if (is_causal) {
         TORCH_CHECK(!attn_mask.has_value(),
                 "_scaled_dot_product_attention: Explicit attn_mask should not be set when is_causal=True");
-        TORCH_CHECK(!query.is_nested() && !key.is_nested(),
+        TORCH_CHECK(!query.is_nested() && !key_contiguous.is_nested(),
                 "_scaled_dot_product_attention: Nested tensors for query / key are not supported when is_causal=True");
 
         // Replace attn_mask with causal mask; lower triangular elements take part in attention.
-        const auto L = query.size(-2), S = key.size(-2);
+        const auto L = query.size(-2), S = key_contiguous.size(-2);
         attn_mask = at::ones({L, S}, query.options().dtype(at::kBool)).tril();
     }
     if (attn_mask.has_value()) {
-        TORCH_CHECK(!query.is_nested() && !key.is_nested(),
+        TORCH_CHECK(!query.is_nested() && !key_contiguous.is_nested(),
                 "_scaled_dot_product_attention: Nested tensors for query / key are not supported "
                 "when an explicit attn_mask is set");
         // Convert boolean mask to additive mask; need to invert mask to indicate what to mask *out*.
@@ -779,7 +780,7 @@ std::tuple<Tensor, Tensor> _scaled_dot_product_attention_math(
     if (dropout_p > 0.0) {
       attn = at::dropout(attn, dropout_p, true);
     }
-    const auto output = at::matmul(attn, value);
+    const auto output = at::matmul(attn, value_contiguous);
     return std::make_tuple(output, attn);
 }
 

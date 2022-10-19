@@ -288,6 +288,7 @@ class TestTransformers(NNTestCase):
     @parametrize("training", [True, False])
     @parametrize("enable_nested_tensor", [True, False])
     @parametrize("device", device_list)
+    @sdp_kernel(enable_math=True)
     def test_transformerencoder(self, batch_first, training, enable_nested_tensor, device):
         def get_a_test_layer(activation, batch_first=False):
             d_model = 4
