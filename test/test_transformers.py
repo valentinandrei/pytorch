@@ -155,7 +155,7 @@ class TestTransformers(NNTestCase):
         """
         torch.manual_seed(1234)
         nhead = 4
-        dim_feedforward = 12
+        dim_feedforward = d_model
         batch_first = True
 
         model = torch.nn.TransformerEncoder(
@@ -224,7 +224,6 @@ class TestTransformers(NNTestCase):
                 with torch.no_grad():
                     fastpath_output = model(input, src_key_padding_mask=src_key_padding_mask)
                 slowpath_output = model(input, src_key_padding_mask=src_key_padding_mask)  # reference
-
                 # Make sure fastpath_output is same shape as slowpath_output and mask.
                 # When enable_nested_tensor=true, fastpath_output may be smaller than input tensor.
                 # Eg if input bs=1, seqlen=6, and we mask out 2 tokens, fastpath_output will have bs=1, seqlen=4.

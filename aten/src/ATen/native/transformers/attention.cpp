@@ -7,10 +7,6 @@
 #include <ATen/TensorIndexing.h>
 #include <ATen/cpu/vec/vec256/vec256.h>
 
-// #ifdef USE_CUDA
-// #include <ATen/native/transformers/cuda/sdp_utils.h>
-// #endif
-
 #include <ATen/native/transformers/cuda/sdp_utils.h>
 
 #ifndef AT_PER_OPERATOR_HEADERS
@@ -20,7 +16,6 @@
 #endif
 
 #include <ATen/native/nested/NestedTensorTransformerFunctions.h>
-
 namespace at {
 
 namespace native {
@@ -400,8 +395,6 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
         query, key, value, mask.has_value(), 0.0, need_weights, false};
     auto backend = select_sdp_backend(kernel_params);
     if (backend != sdp::SDPBackend::math && backend != sdp::SDPBackend::error) {
-      std::cout << "lets party" << std::endl;
-      std::cout << "Query is nested: " << query.is_nested() << std::endl;
       auto x = at::linear(query, qkv_weight, qkv_bias);
       auto chunks = x.chunk(3, -1);
       auto x_size_0 = x.size(0);

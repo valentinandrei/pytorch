@@ -9,6 +9,7 @@
 #include <c10/core/ScalarType.h>
 #include <c10/util/env.h>
 #include <c10/util/irange.h>
+#include <ATen/NestedTensorImpl.h>
 
 #include <functional>
 #include <unordered_set>
@@ -58,6 +59,41 @@ inline bool check_for_attn_weights(sdp_params params, bool debug) {
   if (params.need_attn_weights) {
     TORCH_CHECK(!debug, "Flash Attention does not support need attn weights");
     return false;
+  }
+  return true;
+}
+inline bool check_for_0_seq_len_nested_tensor(sdp_params params, bool debug) {
+  if (!params.query.is_nested()) {
+    return true;
+  }
+  const at::Tensor& sizes = at::native::get_nested_tensor_impl(params.query)
+                                ->get_nested_size_tensor();
+  auto* sizes_ptr = sizes.data_ptr<int64_t>();
+  const int64_t n_tensors = params.query.size(0);
+  const int64_t size_tensor_stride = sizes.stride(0);
+
+  if (params.query.dim() == 4) {
+    // This is being called inside sdp with shape [batch, heads, {seq_len}, dim]
+    for (const auto i : c10::irange(n_tensors)) {
+      // Calculate the cumulative sum of the sequence lengths
+      if (sizes_ptr[(i * size_tensor_stride) + 1] == 0) {
+        TORCH_CHECK(
+            !debug, "Flash Attention does not support 0 sequence length");
+        return false;
+      }
+    }
+  }
+  if (params.query.dim() == 3) {
+    // This is being called inside mha with shape [batch,{seq_len},
+    // num_heads*head_per_dim]
+    for (const auto i : c10::irange(n_tensors)) {
+      // Calculate the cumulative sum of the sequence lengths
+      if (sizes_ptr[(i * size_tensor_stride)] == 0) {
+        TORCH_CHECK(
+            !debug, "Flash Attention does not support 0 sequence length");
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -196,7 +232,8 @@ inline bool use_mem_efficient_attention(sdp_params params, bool debug) {
       check_runtime_disabled,
       check_for_attn_weights,
       check_tensor_shapes,
-      check_for_attn_mask};
+      check_for_attn_mask,
+      check_for_0_seq_len_nested_tensor};
   for (auto& constraint : constraints) {
     if (!constraint(params, debug)) {
       return false;
