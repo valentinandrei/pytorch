@@ -590,7 +590,8 @@ def expand(x, sizes):
 
     x_size_product = sympy_product(x.get_size())
     try:
-        if x_size_product > 0:
+        # mark reuse if its not a scalar value
+        if x_size_product > 1:
             x.mark_reuse(
                 V.graph.sizevars.size_hint(sympy_product(sizes) / x_size_product)
             )
@@ -651,7 +652,8 @@ def repeat(x, repeats):
 
     old_size_product = sympy_product(old_size)
     try:
-        if old_size_product > 0:
+        # mark reuse if its not a scalar
+        if old_size_product > 1:
             x.mark_reuse(
                 V.graph.sizevars.size_hint(sympy_product(new_size) / old_size_product)
             )
