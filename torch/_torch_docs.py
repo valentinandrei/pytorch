@@ -10609,7 +10609,7 @@ Example::
 add_docstr(
     torch.std,
     r"""
-std(input, dim=None, *, correction=1, keepdim=False, out=None) -> Tensor
+std(input, dim=None, *, correction=None, keepdim=False, out=None) -> Tensor
 
 Calculates the standard deviation over the dimensions specified by :attr:`dim`.
 :attr:`dim` can be a single dimension, list of dimensions, or ``None`` to
@@ -10633,12 +10633,10 @@ Args:
 
 Keyword args:
     correction (int): difference between the sample size and sample degrees of freedom.
-                      Defaults to `Bessel's correction`_, ``correction=1``.
+        For `Bessel's correction`_, use ``correction=1``.
     .. versionchanged:: 1.14
         Previously this argument was called ``unbiased`` and was a boolean with
         ``True`` corresponding to ``correction=1`` and ``False`` being ``correction=0``.
-    .. deprecated:: 1.14
-        The default correction value is deprecated. Pass ``correction=1`` explicitly instead.
     {keepdim}
     {out}
 
@@ -10665,7 +10663,7 @@ Example:
 add_docstr(
     torch.std_mean,
     r"""
-std_mean(input, dim=None, *, correction=1, keepdim=False, out=None) -> (Tensor, Tensor)
+std_mean(input, dim=None, *, correction=None, keepdim=False, out=None) -> (Tensor, Tensor)
 
 Calculates the standard deviation and mean over the dimensions specified by
 :attr:`dim`. :attr:`dim` can be a single dimension, list of dimensions, or
@@ -10690,12 +10688,10 @@ Args:
 
 Keyword args:
     correction (int): difference between the sample size and sample degrees of freedom.
-                      Defaults to `Bessel's correction`_, ``correction=1``.
+        For `Bessel's correction`_, use ``correction=1``.
     .. versionchanged:: 1.14
         Previously this argument was called ``unbiased`` and was a boolean with
         ``True`` corresponding to ``correction=1`` and ``False`` being ``correction=0``.
-    .. deprecated:: 1.14
-        The default correction value is deprecated. Pass ``correction=1`` explicitly instead.
     {keepdim}
     {out}
 
@@ -12076,7 +12072,7 @@ Example::
 add_docstr(
     torch.var,
     r"""
-var(input, dim=None, *, correction=1, keepdim=False, out=None) -> Tensor
+var(input, dim=None, *, correction=None, keepdim=False, out=None) -> Tensor
 
 Calculates the variance over the dimensions specified by :attr:`dim`. :attr:`dim`
 can be a single dimension, list of dimensions, or ``None`` to reduce over all
@@ -12100,12 +12096,10 @@ Args:
 
 Keyword args:
     correction (int): difference between the sample size and sample degrees of freedom.
-                      Defaults to `Bessel's correction`_, ``correction=1``.
+        For `Bessel's correction`_, use ``correction=1``.
     .. versionchanged:: 1.14
         Previously this argument was called ``unbiased`` and was a boolean with
         ``True`` corresponding to ``correction=1`` and ``False`` being ``correction=0``.
-    .. deprecated:: 1.14
-        The default correction value is deprecated. Pass ``correction=1`` explicitly instead.
     {keepdim}
     {out}
 
@@ -12132,7 +12126,7 @@ Example:
 add_docstr(
     torch.var_mean,
     r"""
-var_mean(input, dim=None, *, correction=1, keepdim=False, out=None) -> (Tensor, Tensor)
+var_mean(input, dim=None, *, correction=None, keepdim=False, out=None) -> (Tensor, Tensor)
 
 Calculates the variance and mean over the dimensions specified by :attr:`dim`.
 :attr:`dim` can be a single dimension, list of dimensions, or ``None`` to
@@ -12156,12 +12150,10 @@ Args:
 
 Keyword args:
     correction (int): difference between the sample size and sample degrees of freedom.
-                      Defaults to `Bessel's correction`_, ``correction=1``.
+        For `Bessel's correction`_, use ``correction=1``.
     .. versionchanged:: 1.14
         Previously this argument was called ``unbiased`` and was a boolean with
         ``True`` corresponding to ``correction=1`` and ``False`` being ``correction=0``.
-    .. deprecated:: 1.14
-        The default correction value is deprecated. Pass ``correction=1`` explicitly instead.
     {keepdim}
     {out}
 
