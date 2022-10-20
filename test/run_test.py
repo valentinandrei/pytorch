@@ -436,14 +436,14 @@ def run_test(
 
     os.makedirs(REPO_ROOT / "test" / "test-reports", exist_ok=True)
     log_fd, log_path = tempfile.mkstemp(dir=REPO_ROOT / "test" / "test-reports",
-                                        prefix="{}_".format(test_module.replace("\\", "-").replace("/", "-")))
+                                        prefix="{}_".format(test_module.replace("\\", "-").replace("/", "-")),
+                                        suffix=".log")
     os.close(log_fd)
     command = (launcher_cmd or []) + executable + argv
     print_to_stderr("Executing {} ... [{}]".format(command, datetime.now()))
     with open(log_path, "w") as f:
         ret_code = shell(command, test_directory, stdout=f, stderr=f, env=env)
     print_log_file(test_module, log_path, failed=(ret_code != 0))
-    os.remove(log_path)
     return ret_code
 
 
@@ -704,7 +704,7 @@ def print_log_file(test: str, file_path: str, failed: bool) -> None:
         print_to_stderr("")
         if failed:
             if n < num_lines:
-                print_to_stderr(f"Expand the folded group to see the beginning of the log file of {test}")
+                print_to_stderr(f"Expand the folded group to see the beginning of the log file of {test} ({num_lines})")
                 print_to_stderr(f"##[group]PRINTING BEGINNING OF LOG FILE of {test} ({file_path})")
                 for _ in range(num_lines - n):
                     print_to_stderr(next(f).rstrip())
@@ -713,7 +713,7 @@ def print_log_file(test: str, file_path: str, failed: bool) -> None:
                 print_to_stderr(next(f).rstrip())
             print_to_stderr(f"FINISHED PRINTING LOG FILE of {test} ({file_path})")
         else:
-            print_to_stderr(f"Expand the folded group to see the log file of {test}")
+            print_to_stderr(f"Expand the folded group to see the log file of {test} ({num_lines})")
             print_to_stderr(f"##[group]PRINTING LOG FILE of {test} ({file_path})")
             print_to_stderr(f.read())
             print_to_stderr("##[endgroup]")
