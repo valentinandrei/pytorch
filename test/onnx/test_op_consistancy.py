@@ -251,8 +251,12 @@ ALLOWLIST_OP = frozenset(
     op.__name__
     for op in (
         torch.ceil,
+        torch.div,
+        torch.floor_divide,
+        torch.remainder,
         torch.sqrt,
         torch.t,
+        torch.true_divide,
     )
 )
 
@@ -268,21 +272,44 @@ ALLOWLIST_OP = frozenset(
 EXPECTED_SKIPS_OR_FAILS: Tuple[DecorateMeta, ...] = (
     skip(torch.ceil, dtypes=BOOL_TYPES + INT_TYPES + QINT_TYPES + COMPLEX_TYPES, reason="not supported by onnx"),
     skip(torch.ceil, dtypes=[torch.float64], reason="Ceil on f64 not supported by ONNX Runtime"),
+    xfail(torch.div, variant_name="no_rounding_mode", dtypes=COMPLEX_TYPES, reason="jit tracer error for complex types"),
+    xfail(torch.div, variant_name="floor_rounding", dtypes=COMPLEX_TYPES, reason="jit tracer error for complex types"),
+    xfail(
+        torch.div, variant_name="trunc_rounding", dtypes=(torch.float16,) + COMPLEX_TYPES,
+        reason="jit tracer error for f16 and complex types"
+    ),
+    skip(
+        torch.div, variant_name="no_rounding_mode", dtypes=[torch.uint8, torch.int8, torch.int16],
+        reason="Div on u8, i8, i16 not implemented in onnx runtime"
+    ),
+    skip(
+        torch.div, variant_name="floor_rounding", dtypes=[torch.uint8, torch.int8, torch.int16],
+        reason="Div on u8, i8, i16 not implemented in onnx runtime"
+    ),
+    skip(
+        torch.div, variant_name="floor_rounding", dtypes=[torch.float64],
+        reason="Div on f64 not implemented in onnx runtime"
+    ),
+    skip(
+        torch.div, variant_name="trunc_rounding", dtypes=[torch.uint8, torch.int8, torch.int16],
+        reason="Div on u8, i8, i16 not implemented in onnx runtime"
+    ),
+    xfail(torch.floor_divide, dtypes=COMPLEX_TYPES, reason="jit tracer error for complex types"),
+    skip(torch.floor_divide, dtypes=[torch.float64], reason="Floor on f64 not supported by ONNX Runtime"),
+    skip(torch.remainder, dtypes=[torch.float64], reason="Floor on f64 not supported by ONNX Runtime"),
     skip(torch.sqrt, dtypes=BOOL_TYPES + QINT_TYPES + COMPLEX_TYPES, reason="not supported by onnx"),
     xfail(torch.t, dtypes=COMPLEX_TYPES, reason="jit tracer error for complex types"),
+    xfail(torch.true_divide, dtypes=COMPLEX_TYPES, reason="jit tracer error for complex types"),
 )
 # fmt: on
 
 # Expected opset specific fails for ops that do not support specific opsets
-
 EXPECTED_OPSET_FAILS: Tuple[XfailOpset, ...] = (
-    # TODO: sqrt for torch.bfloat16 is just an example. Replace it with more meaningful
-    # skips when there are.
     XfailOpset(
-        torch.sqrt,
-        dtypes=[torch.bfloat16],
-        opsets=[opsets_before(13)],
-        reason="Sqrt not defined for bf16 before opset 13",
+        torch.remainder,
+        dtypes=[torch.uint8, torch.int8, torch.int16],
+        opsets=[opsets_before(11)],
+        reason="Sub not defined for u8, i16 before opset 14. Mod is used after 11 so we support from opset 11.",
     ),
 )
 
