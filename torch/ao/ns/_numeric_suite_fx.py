@@ -138,8 +138,9 @@ from torch.ao.ns.fx.n_shadows_utils import (
     print_n_shadows_summary,
     handle_subgraph,
 )
+from torch.ao.ns.fx.qconfig_multi_mapping import QConfigMultiMapping
 
-from typing import Dict, Tuple, Callable, List, Optional, Set, Any, Type
+from typing import Dict, Tuple, Callable, List, Optional, Set, Any, Type, Union
 
 RNNReturnType = Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 
@@ -753,7 +754,7 @@ def extend_logger_results_with_comparison(
 def prepare_n_shadows_model(
     model: torch.nn.Module,
     example_inputs: Any,
-    qconfig_mappings: List[QConfigMapping],
+    qconfig_mappings: Union[List[QConfigMapping], QConfigMultiMapping],
     backend_config: BackendConfig,
 ) -> torch.nn.Module:
     """
@@ -819,9 +820,13 @@ def prepare_n_shadows_model(
     subgraphs_dedup: Dict[str, List[Node]] = \
         _get_dedup_subgraphs(matches)
 
+    if isinstance(qconfig_mappings, QConfigMultiMapping):
+        qconfig_mappings = qconfig_mappings.qconfig_mappings_list
+
     # generate node to qconfig for each subgraph
     # TODO(future PR): deduplicate repeating entries
     list_of_node_name_to_qconfig: List[Dict[str, QConfigAny]] = []
+    assert isinstance(qconfig_mappings, list)
     for qconfig_mapping in qconfig_mappings:
         node_name_to_qconfig = generate_node_name_to_qconfig(
             mt, modules, mt.graph, qconfig_mapping, tracer.node_name_to_scope)
