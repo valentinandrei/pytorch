@@ -73,7 +73,7 @@ inline bool check_for_attn_mask(sdp_params params, bool debug) {
 inline bool check_tensor_shapes(sdp_params params, bool debug) {
   auto query_dim = params.query.dim();
   if (!(query_dim == params.key.dim() && query_dim == params.value.dim() &&
-        query_dim == 4)) {
+        (query_dim == 4 || query_dim == 3))) {
     TORCH_CHECK(
         !debug,
         "Flash attention requires query, key and value to be 4 dimensional, but got Query dim: ",
