@@ -388,10 +388,11 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
       ? get_nested_tensor_impl(query)->get_nested_size_tensor().size(0)
       : query.sizes()[0];
   auto T = query.is_nested() ? 0 : query.sizes()[1];
+  const auto dim_per_head = D / num_head;
 #endif
 #ifdef USE_CUDA
-  const auto dim_per_head = D / num_head;
-  if (dim_per_head % 8 == 0 && query.is_cuda()) {
+  const int64_t sdp_dim_per_head = D / num_head;
+  if (sdp_dim_per_head % 8 == 0 && query.is_cuda()) {
     sdp::sdp_params kernel_params{
         query, key, value, mask.has_value(), 0.0, need_weights, false};
     auto backend = select_sdp_backend(kernel_params);
@@ -401,9 +402,9 @@ std::tuple<Tensor, Tensor> native_multi_head_attention(
       auto x = at::linear(query, qkv_weight, qkv_bias);
       auto chunks = x.chunk(3, -1);
       auto x_size_0 = x.size(0);
-      chunks[0] = chunks[0].view({x_size_0, -1, num_head, dim_per_head});
-      chunks[1] = chunks[1].view({x_size_0, -1, num_head, dim_per_head});
-      chunks[2] = chunks[2].view({x_size_0, -1, num_head, dim_per_head});
+      chunks[0] = chunks[0].view({x_size_0, -1, num_head, sdp_dim_per_head});
+      chunks[1] = chunks[1].view({x_size_0, -1, num_head, sdp_dim_per_head});
+      chunks[2] = chunks[2].view({x_size_0, -1, num_head, sdp_dim_per_head});
       chunks[0] = chunks[0].transpose(1, 2);
       chunks[1] = chunks[1].transpose(1, 2);
       chunks[2] = chunks[2].transpose(1, 2);
