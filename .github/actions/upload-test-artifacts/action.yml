@@ -74,7 +74,7 @@ runs:
         FILE_SUFFIX: ${{ inputs.file-suffix }}
       run: |
         # -ir => recursive include all files in pattern
-        7z a "usage-log-$Env:FILE_SUFFIX.zip" 'usage_log.txt'
+        7z a "logs-$Env:FILE_SUFFIX.zip" -ir'!test\*.log'
 
     # S3 upload
     - name: Store Test Downloaded JSONs on S3
@@ -105,7 +105,7 @@ runs:
           ${{ github.repository }}/${{ github.run_id }}/${{ github.run_attempt }}/artifact
         retention-days: 14
         if-no-files-found: ignore
-        path: usage-log-*.zip
+        path: logs-*.zip
 
     # GHA upload
     - name: Store Test Downloaded JSONs on Github
