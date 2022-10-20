@@ -2179,6 +2179,7 @@ def _dim_var_dispatch(dim=None, unbiased=None):
     return dim, unbiased
 
 
+@register_decomposition(torch.ops.aten.var)
 @out_wrapper()
 def var(
     a: TensorLikeType,
