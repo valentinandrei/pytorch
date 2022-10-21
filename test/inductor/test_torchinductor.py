@@ -3211,7 +3211,7 @@ class CommonTemplate:
             z = x * y
             return z.sum()
 
-        self.common(fn, [torch.randn(102400), torch.randn(3)])
+        self.common(fn, [torch.ones(102400), torch.ones(3)])
 
     def test_new_empty_strided(self):
         def fn(a):
